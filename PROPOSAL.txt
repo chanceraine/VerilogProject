@@ -1,1 +1,2 @@
-
+For my project I will be implementing a simple stride-prediction prefetcher based on Chen and Baer's Reference prediction table.
+To do this I will modify earlier code to widen the memory bandwidth to allow more than one word to be fetched per cycle.
