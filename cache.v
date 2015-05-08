@@ -12,8 +12,7 @@ module cache(input clk,
     output [15:0]dDataOut,
 
     input [15:0]pc,
-    input loadOutReady,
-    input [15:0]loadOutAddr);
+    input loadOutReady);
     
     //initialize cache
     integer i;
@@ -59,6 +58,19 @@ module cache(input clk,
     reg iCacheV[31:0];
     reg iLRU[31:0];
 
+    //prefetcher
+
+    wire memRequest;
+    wire [15:0]requestAddress;
+
+    prefetcher pre(clk,
+        pc,
+        loadOutReady,
+        dAddress,
+
+        memRequest,
+        requestAddress);
+
     //Control
     wire iMemReady = (icacheHit) ? 1 :
                     iReady;
@@ -74,7 +86,7 @@ module cache(input clk,
     wire [15:0]iAddressReal = iReadEnable ? iAddress : raddr;
     wire [3:0]index = iAddressReal[5:2]; 
     wire [15:0]iTag = iAddressReal[15:6];
-    wire [2:0]blockIndex = iAddressReal[1:0];
+    wire [1:0]blockIndex = iAddressReal[1:0];
 
     //setting cache values
     wire [79:0]iCacheAssign;
@@ -110,35 +122,37 @@ module cache(input clk,
         end 
     end
     //handle insertions/evictions
-    always @(posedge iReady) begin
-        //store instruction value in cache
-        if(!value1V) begin
-            //nothing in 1st way -> store there
-            iCache[index] <= iCacheAssign;
-            iCacheV[index] <= 1;
-            iLRU[index] <= 0;
-            iLRU[index+16] <= 1;
-        end
-        else if(!value2V) begin
-            //nothing in 2nd way -> store there
-            iCache[index+16] <= iCacheAssign;
-            iCacheV[index+16] <= 1;
-            iLRU[index] <= 1;
-            iLRU[index+16] <= 0;
-        end
-        else if(iLRU[index]) begin
-            //both occupied, and first way is LRU
-            iCache[index] <= iCacheAssign;
-            iCacheV[index] <= 1;
-            iLRU[index] <= 0;
-            iLRU[index+16] <= 1;              
-        end
-        else begin
-            //both occupied, second way is LRU
-            iCache[index+16] <= iCacheAssign;
-            iCacheV[index+16] <= 1;
-            iLRU[index] <= 1;
-            iLRU[index+16] <= 0;              
+    always @(posedge clk) begin
+        if(iReady) begin
+            //store instruction value in cache
+            if(!value1V) begin
+                //nothing in 1st way -> store there
+                iCache[index] <= iCacheAssign;
+                iCacheV[index] <= 1;
+                iLRU[index] <= 0;
+                iLRU[index+16] <= 1;
+            end
+            else if(!value2V) begin
+                //nothing in 2nd way -> store there
+                iCache[index+16] <= iCacheAssign;
+                iCacheV[index+16] <= 1;
+                iLRU[index] <= 1;
+                iLRU[index+16] <= 0;
+            end
+            else if(iLRU[index]) begin
+                //both occupied, and first way is LRU
+                iCache[index] <= iCacheAssign;
+                iCacheV[index] <= 1;
+                iLRU[index] <= 0;
+                iLRU[index+16] <= 1;              
+            end
+            else begin
+                //both occupied, second way is LRU
+                iCache[index+16] <= iCacheAssign;
+                iCacheV[index+16] <= 1;
+                iLRU[index] <= 1;
+                iLRU[index+16] <= 0;              
+            end
         end
     end
 
@@ -164,7 +178,7 @@ module cache(input clk,
     wire [15:0]dAddressReal = dReadEnable ? dAddress : daddr;
     wire [3:0]dIndex = dAddressReal[5:2]; 
     wire [15:0]dTag = dAddressReal[15:6];
-    wire [2:0]dBlockIndex = dAddressReal[1:0];
+    wire [1:0]dBlockIndex = dAddressReal[1:0];
 
     //setting cache values
     wire [79:0]dCacheAssign;
@@ -200,36 +214,38 @@ module cache(input clk,
         end 
     end
     //handle cache insertions/evictions
-    always @(posedge dReady) begin
-        //store instruction value in cache
-        if(!dvalue1V) begin
-            //nothing in 1st way -> store there
-            dCache[dIndex] <= dCacheAssign;
-            dCacheV[dIndex] <= 1;
-            dLRU[dIndex] <= 0;
-            dLRU[dIndex+16] <= 1;
-        end
-        else if(!dvalue2V) begin
-            //nothing in 2nd way -> store there
-            dCache[dIndex+16] <= dCacheAssign;
-            dCacheV[dIndex+16] <= 1;
-            dLRU[dIndex] <= 1;
-            dLRU[dIndex+16] <= 0;
-        end
-        else if(dLRU[dIndex]) begin
-            //both occupied, and first way is LRU
-            dCache[dIndex] <= dCacheAssign;
-            dCacheV[dIndex] <= 1;
-            dLRU[dIndex] <= 0;
-            dLRU[dIndex+16] <= 1;              
-        end
-        else begin
-            //both occupied, second way is LRU
-            dCache[dIndex+16] <= dCacheAssign;
-            dCacheV[dIndex+16] <= 1;
-            dLRU[dIndex] <= 1;
-            dLRU[dIndex+16] <= 0;              
-        end         
+    always @(posedge clk) begin
+        if(dReady) begin
+            //store instruction value in cache
+            if(!dvalue1V) begin
+                //nothing in 1st way -> store there
+                dCache[dIndex] <= dCacheAssign;
+                dCacheV[dIndex] <= 1;
+                dLRU[dIndex] <= 0;
+                dLRU[dIndex+16] <= 1;
+            end
+            else if(!dvalue2V) begin
+                //nothing in 2nd way -> store there
+                dCache[dIndex+16] <= dCacheAssign;
+                dCacheV[dIndex+16] <= 1;
+                dLRU[dIndex] <= 1;
+                dLRU[dIndex+16] <= 0;
+            end
+            else if(dLRU[dIndex]) begin
+                //both occupied, and first way is LRU
+                dCache[dIndex] <= dCacheAssign;
+                dCacheV[dIndex] <= 1;
+                dLRU[dIndex] <= 0;
+                dLRU[dIndex+16] <= 1;              
+            end
+            else begin
+                //both occupied, second way is LRU
+                dCache[dIndex+16] <= dCacheAssign;
+                dCacheV[dIndex+16] <= 1;
+                dLRU[dIndex] <= 1;
+                dLRU[dIndex+16] <= 0;              
+            end   
+        end      
     end
 
 

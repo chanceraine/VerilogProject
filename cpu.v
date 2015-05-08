@@ -32,8 +32,7 @@ module main();
        dmemOut,
 
        pc,
-       loadOutReady,
-       loadOutAddr
+       loadOutReady
     );
 
     //state
@@ -360,13 +359,12 @@ module main();
     wire [15:0]loadOut;
     wire [3:0]loadOutSrc;
     wire [3:0]loadOutReg;
-    wire [15:0]loadOutAddr;
 
     loader load(clk,
         loadWE, loadRS, //line input
         !isJeq ? floatOutReady : 0,floatOut,floatOutSrc, //bus access
         dmemReady,dData,dmemIn,dmemOut, //memory access
         nextLoadRA,loadFilled,loadOutReady, //logistics
-        loadOut,loadOutSrc,loadOutReg,loadOutAddr); //bus out
+        loadOut,loadOutSrc,loadOutReg); //bus out
 
 endmodule

@@ -16,8 +16,7 @@ module loader(input clk,
 	output loadOutReady,
 	output [15:0]loadOut,
 	output [3:0]loadOutSrc,
-	output [3:0]loadOutReg,
-    output [15:0]loadOutAddr);
+	output [3:0]loadOutReg);
 
     //[50:47] = reg
     //[46:46] = busy
@@ -58,9 +57,6 @@ module loader(input clk,
                         16'hF;
 
     wire loadOutReady = memReady && fetching;
-    wire [15:0]loadOutAddr = load0Ready ? rs0Addr :
-                       load1Ready ? rs1Addr :
-                       16'hFFFF;
 
 
     //inputs to module

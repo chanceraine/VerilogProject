@@ -53,23 +53,36 @@ module mem(input clk,
             end
         end
     end
+    
 
-    reg [15:0]loadPtr = 16'hxxxx;
-    reg [15:0]loadCounter = 0;
+    reg [15:0]queue[99:0];
 
-    assign loadReady = (loadCounter == 1);
-    assign loadData = (loadCounter == 1) ? data[loadPtr/4] : 16'hxxxx;
+    integer i;
+    initial begin
+    queue[99] <= 16'hFFFF;
+        for(i = 0; i < 100; i = i + 1) begin
+            queue[i] <= 16'hFFFF;
+        end        
+    end
+
+    wire [15:0]queue0 = queue[0];
+    wire [15:0]queue1 = queue[99];
+
+    assign loadReady = (queue[99] != 16'hFFFF);
+    assign loadData = (loadReady) ? data[queue[99]/4] : 16'hxxxx;
 
     always @(posedge clk) begin
-        if (loadEnable) begin
-            loadPtr <= loadAddr;
-            loadCounter <= 100;
-        end else begin
-            if (loadCounter > 0) begin
-                loadCounter <= loadCounter - 1;
-            end else begin
-                loadPtr <= 16'hxxxx;
-            end
+        //move each item up by one in queue
+        for(i = 1; i < 100; i = i + 1) begin
+            queue[i] <= queue[i-1];
+        end
+
+        //handle new values
+        if(loadEnable) begin
+            queue[0] <= loadAddr;
+        end
+        else begin
+           queue[0] <= 16'hFFFF;
         end
     end
 
