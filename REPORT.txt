@@ -1,7 +1,18 @@
 Describe your implementation:
 
+Memory Changes:
+-Memory now returns 64 bit chunks
+-Data memory still takes 100 cycles, but it is pipelined (could have 100 memory requests in pipeline)
+Prefetcher:
+
+
 What worked?
 
 What didn't work?
+-Turns out my Tomasulo (p9) project had a massive number of bugs I just hadn't found yet (somehow it passed all the tests though...)
+-This took a lot of my working time to fix. I made the base prefetcher, and then spent 10-15 hrs finding bugs that it made me discover
+
+Things I would've liked to do:
+
 
 What did you learn?

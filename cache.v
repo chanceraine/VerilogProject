@@ -11,8 +11,10 @@ module cache(input clk,
     output dMemReady,
     output [15:0]dDataOut,
 
+    //for prefetcher
     input [15:0]pc,
-    input loadOutReady); //possibly dont need
+    input jmp,
+    input [11:0]jmpAddr); //possibly dont need
     
     //initialize cache
     integer i;
@@ -159,7 +161,7 @@ module cache(input clk,
 
 
     //Control
-    wire dMemReady = (dcacheHit) ? 1 :
+    wire dMemReady = (dcacheHit && dReadEnable) ? 1 :
                      dataComplete; //ignore prefetching results while waiting
 
     wire dataComplete = (dReady && orlOutput == daddr);
@@ -223,9 +225,13 @@ module cache(input clk,
     //store  dAddress for loads
     reg [15:0]daddr;
     always @(posedge clk) begin
-        if(dReadEnable) begin
+        if(dReadEnable && !dMemReady) begin
             daddr <= dAddress;
         end 
+        //reset daddr   
+        else if(dMemReady) begin
+            daddr <= 16'hFFFF;
+        end
     end
     //handle cache insertions/evictions
     always @(posedge clk) begin
@@ -260,10 +266,6 @@ module cache(input clk,
                 dLRU[dIndexW+16] <= 0;              
             end 
         end   
-        //reset daddr   
-        if(dMemReady) begin
-            daddr <= 16'hFFFF;
-        end
     end
 
     //data prefetcher
@@ -281,7 +283,10 @@ module cache(input clk,
         memRequest,
         requestAddress,
 
-        orlOutput);
+        orlOutput,
+
+        jmp,
+        jmpAddr);
 
 
 endmodule

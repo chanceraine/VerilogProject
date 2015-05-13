@@ -32,7 +32,8 @@ module main();
        dmemOut,
 
        pc,
-       loadOutReady
+       earlyJump,
+       jmpDest
     );
 
     //state
@@ -134,17 +135,23 @@ module main();
 
     //don't bother writing/changing valid status if register will be overwritten by write
     //only for add? Need this for load too?
-    wire overwrite = (floatWE && floatOutReady && floatOutReg == addRS[50:47] && addRS[45:42] == 1);
+    wire overwriteAdd = (floatWE && floatOutReady && floatOutReg == addRS[50:47] && addRS[45:42] == 1) || //add done, overwrite with add
+                        (loadWE && floatOutReady && floatOutReg == loadRS[50:47]); //add done, overwrite with load
+
+    wire overwriteLoad = (floatWE && loadOutReady && loadOutReg == addRS[50:47] && addRS[45:42] == 1) || //load done, overwrite with add
+                         (loadWE && loadOutReady && loadOutReg == loadRS[50:47]); //load done, overwrite with load
+
+    wire [3:0]source2 = regsSource[2];
 
     always @(posedge clk) begin
         if(floatOutReady && !isJeq) begin
-            if((regsSource[floatOutReg] == floatOutSrc) && (regsValid[floatOutReg] == 0) && !overwrite) begin
+            if((regsSource[floatOutReg] == floatOutSrc) && (regsValid[floatOutReg] == 0) && !overwriteAdd) begin
                 regs[floatOutReg] <= floatOut;
                 regsValid[floatOutReg] <= 1;
             end     
         end
         if(loadOutReady) begin
-            if((regsSource[loadOutReg] == loadOutSrc) && (regsValid[loadOutReg] == 0)) begin
+            if((regsSource[loadOutReg] == loadOutSrc) && (regsValid[loadOutReg] == 0) && !overwriteLoad) begin
                 regs[loadOutReg] <= loadOut;
                 regsValid[loadOutReg] <= 1;
             end     
@@ -322,6 +329,8 @@ module main();
     assign addRS[3:0] = (regsSource[rb]); //r1 src
 
     wire floatWE = !pause && outEnable && needsFloat;
+
+    wire validReg = regsValid[ra];
 
     wire [3:0]nextFloatRA;
     wire [1:0]floatFilled;

@@ -3,23 +3,23 @@ module prefetcher(input clk,
 	input memAccess,
 	input [15:0]memAddress,
 
-	output memRequest,
+	output submitMemRequest,
 	output [15:0]requestAddress,
 
-	output [15:0]orlOutput
+	output [15:0]orlOutput,
+
+	input jmp,
+	input [11:0]jmpAddr
 	);
 
 	initial begin
 		$dumpfile("cpu.vcd");
         $dumpvars(1,prefetcher);
 	end
-	
-	//look-ahead pc
-	reg [15:0]laPC = 0;
 
 	//32 entry reference predictor table
 	//[1:0] = state
-	//[15:2] = stride (lots of stride space)
+	//[15:2] = stride (allows for very big strides)
 	//[31:16] = prev address accessed
 	//[43:32] = tag (lower bits of pc)
 	//[43:43] = valid
@@ -32,10 +32,11 @@ module prefetcher(input clk,
 		end
 	end
 
+	wire submitMemRequest = memRequest && !orlCheck;
 	reg memRequest = 0;
 	reg [15:0]requestAddress = 0;
 
-	wire [15:0]nextAddress = memAddress + (memAddress - pcEntryAddr);
+	wire [15:0]pcNextAddress = memAddress + (memAddress - pcEntryAddr);
 
 	//PC
 	wire [10:0]pcTag = pc[15:5];
@@ -80,9 +81,28 @@ module prefetcher(input clk,
 	assign none[1:0] = 3;
 
 	//Lookahead PC
+	reg [15:0]laPC = 0;
+
+	wire [15:0]laPCNextAddress = memAddress + (memAddress - laPCEntryAddr);
+
+	wire [10:0]laPCTag = laPC[15:5];
+	wire [4:0]laPCIndex = laPC[4:0];
 
 	wire [43:0]laPCEntry = rpt[laPC];
 	wire laPCEntryV = laPCEntry[43:43];
+	wire [15:0]laPCEntryAddr = laPCEntry[31:16];
+	wire [13:0]laPCEntryStride = laPCEntry[15:2];
+	wire [1:0]laPCEntryState = laPCEntry[1:0];
+
+	//control Lookahead PC
+	always @(posedge clk) begin
+		if(jmp) begin
+			laPC <= jmpAddr;
+		end
+		else begin
+			laPC <= laPC + 1;
+		end
+	end
 
     always @(posedge clk) begin
     	if(memAccess) begin
@@ -119,12 +139,12 @@ module prefetcher(input clk,
     				rpt[pcIndex] <= none;
     			end
 
-    			if(pcEntryState != 3 && !orlCheck) begin
+    			if(pcEntryState != 3) begin
     				//we do a prefetch if not in the no prediction state
     				//also if address was not already requested
     				//initiate prefetch (done in next cycle)
     				memRequest <= 1;
-    				requestAddress <= nextAddress;
+    				requestAddress <= pcNextAddress;
     			end
     		end
     		else begin
@@ -134,6 +154,8 @@ module prefetcher(input clk,
     	end
     	else if(laPCEntryV) begin
     		//if no other memory prefetch is needed, we will initiate another fetch if we can
+			memRequest <= 1;
+			requestAddress <= laPCNextAddress;    		
     	end
     	else begin
 			memRequest <= 0;
@@ -158,9 +180,17 @@ module prefetcher(input clk,
             if(memAccess) begin
 	            //weird way to check if address already in orl
 	            //gets set to 1 if address is there, 0 otherwise
-	            if(orl[i] == nextAddress) begin
+	            if(orl[i] == pcNextAddress) begin
 	            	orlCheck <= 1;
 	            end
+	        end
+	        else if(laPCEntryV) begin
+	            if(orl[i] == laPCNextAddress) begin
+	            	orlCheck <= 1;
+	            end	        	
+	        end
+	        else if(memRequest) begin
+	        	orlCheck <= 0;
 	        end
         end
         //handle new values

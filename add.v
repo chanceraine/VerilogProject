@@ -60,6 +60,8 @@ module adder(input clk,
     wire [3:0]rs0Reg = rs0[50:47];
     wire [15:0]rs0v0 = rs0[41:26];
     wire [15:0]rs0v1 = rs0[20:5];
+    wire rs0v0v = rs0[25:25];
+    wire rs0v1v = rs0[4:4];    
     wire [15:0]rs0Add = rs0v0 + rs0v1;
     wire [15:0]rs0Jeq = (rs0v0 == rs0v1);
     
@@ -73,7 +75,6 @@ module adder(input clk,
     wire [15:0]rs1Add = rs1v0 + rs1v1;
     wire [15:0]rs1Jeq = (rs1v0 == rs1v1);
 
-    wire rs1src1change = ((rs1src1 == floatOutSrc) && float0Ready);
     always @(posedge clk) begin
         if(writeEnabled) begin
         	if(nextRA == 0) begin
