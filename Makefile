@@ -9,7 +9,7 @@ clean :
 test : $(sort $(patsubst %.ok,%,$(wildcard test?.ok)))
 
 test% : cpu mem%.hex
-	@echo -n "test$* ... "
+	@echo "test$* ... "
 	@cp mem$*.hex mem.hex
 	@cp test$*.ok test.ok
 	@./cpu > test.raw 2>&1
