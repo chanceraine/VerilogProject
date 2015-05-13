@@ -44,7 +44,7 @@ module mem(input clk,
     always @(posedge clk) begin
         if (fetchEnable) begin
             fetchPtr <= fetchAddr;
-            fetchCounter <= 1;
+            fetchCounter <= 1; 
         end else begin
             if (fetchCounter > 0) begin
                 fetchCounter <= fetchCounter - 1;
@@ -54,7 +54,11 @@ module mem(input clk,
         end
     end
     
-
+    //data memory is weird
+    //it's a size 100 queue, where you have to go through all the steps
+    //you can make one request per cycle, and then expect to get it back 100 cycles later
+    //by doing this, requests are pipelined essentially
+    //this mimics a memory that can handle multiple requests at a time, but takes a long time to get results
     reg [15:0]queue[99:0];
 
     integer i;
@@ -64,9 +68,6 @@ module mem(input clk,
             queue[i] <= 16'hFFFF;
         end        
     end
-
-    wire [15:0]queue0 = queue[0];
-    wire [15:0]queue1 = queue[99];
 
     assign loadReady = (queue[99] != 16'hFFFF);
     assign loadData = (loadReady) ? data[queue[99]/4] : 16'hxxxx;

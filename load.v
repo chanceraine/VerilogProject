@@ -37,14 +37,14 @@ module loader(input clk,
     reg [50:0]rs0 = 0;
     reg [50:0]rs1 = 0; 
 
-    reg fetching = 0;
-    reg active = 0;
     //connecting to memory
 
     wire loadMem = (load0Ready || load1Ready) && !fetching;
     wire memAddr = (load0Ready) ? rs0Addr :
                    (load1Ready) ? rs1Addr :
                     16'hF;
+
+    reg fetching = 0;
 
     //output from module
     wire [15:0]loadOut = memOut;
@@ -56,7 +56,7 @@ module loader(input clk,
                         (load1Ready) ? rs1Reg :
                         16'hF;
 
-    wire loadOutReady = memReady && fetching;
+    wire loadOutReady = memReady;
 
 
     //inputs to module
@@ -83,34 +83,25 @@ module loader(input clk,
         	end
         end
 
-        //beginning load
-        if(load0Ready && !fetching) begin
-            fetching <= 1;
-            active <= 0;
+        if(memReady) begin
+            fetching <= 0;
         end
-        else if(load1Ready && !fetching) begin
+        else if(loadMem) begin
             fetching <= 1;
-            active <= 1;
         end
 
         //once load is complete
-        if(memReady && fetching) begin
-            fetching <= 0;
-            //free station
-            if(active == 0) begin
-                rs0 <= 0;    
-            end
-            else begin
-                rs1 <= 0;
-            end
+        if(memReady) begin
             //update other station if there are dependencies
             if(load0Ready) begin
+                rs0 <= 0;    
                 if((rs1src0 == loadOutSrc) && (rs1 != 0)) begin
                     rs1[41:26] <= loadOut;
                     rs1[25:25] <= 1;
                 end
             end
             else if(load1Ready) begin
+                rs1 <= 0;
                 if((rs0src0 == loadOutSrc) && (rs0 != 0)) begin
                     rs0[41:26] <= loadOut;
                     rs0[25:25] <= 1;

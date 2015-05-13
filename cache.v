@@ -12,7 +12,7 @@ module cache(input clk,
     output [15:0]dDataOut,
 
     input [15:0]pc,
-    input loadOutReady);
+    input loadOutReady); //possibly dont need
     
     //initialize cache
     integer i;
@@ -45,8 +45,8 @@ module cache(input clk,
         iData,
 
        /* load port */
-       (!dcacheHit && dReadEnable),
-        dAddress,
+        dMemEnable,
+        dMemAddress,
         dReady,
         dData
     );
@@ -57,19 +57,6 @@ module cache(input clk,
     reg [79:0]iCache[31:0];
     reg iCacheV[31:0];
     reg iLRU[31:0];
-
-    //prefetcher
-
-    wire memRequest;
-    wire [15:0]requestAddress;
-
-    prefetcher pre(clk,
-        pc,
-        loadOutReady,
-        dAddress,
-
-        memRequest,
-        requestAddress);
 
     //Control
     wire iMemReady = (icacheHit) ? 1 :
@@ -163,9 +150,20 @@ module cache(input clk,
     reg dCacheV[31:0];
     reg dLRU[31:0];
 
+    wire [79:0]dCache0 = dCache[0];
+    wire [79:0]dCache1 = dCache[1];
+    wire [79:0]dCache2 = dCache[2];
+    wire [79:0]dCache3 = dCache[3];
+    wire [79:0]dCache4 = dCache[4];
+    wire [79:0]dCache5 = dCache[5];
+
+
     //Control
     wire dMemReady = (dcacheHit) ? 1 :
-                    dReady;
+                     dataComplete; //ignore prefetching results while waiting
+
+    wire dataComplete = (dReady && orlOutput == daddr);
+
     wire [15:0]dDataOut = (dBlockIndex == 3) ? dBlockOut[15:0] :
                           (dBlockIndex == 2) ? dBlockOut[31:16] :
                           (dBlockIndex == 1) ? dBlockOut[47:32] :
@@ -174,16 +172,21 @@ module cache(input clk,
     wire [63:0]dBlockOut = (dcacheHit) ? dcacheVal :
                          dData;  
 
-    //Index
-    wire [15:0]dAddressReal = dReadEnable ? dAddress : daddr;
-    wire [3:0]dIndex = dAddressReal[5:2]; 
-    wire [15:0]dTag = dAddressReal[15:6];
-    wire [1:0]dBlockIndex = dAddressReal[1:0];
+    //Memory inputs
+    wire dMemEnable = (!dcacheHit && dReadEnable) || memRequest;
+    wire [15:0]dMemAddress = (dReadEnable) ? dAddress :
+                       requestAddress;
+    
 
-    //setting cache values
-    wire [79:0]dCacheAssign;
-    assign dCacheAssign[79:64] = dTag; //tag
-    assign dCacheAssign[63:0] = dData; //data to store  
+    //Reading cache Values
+
+    //Indexing
+    wire [15:0]dAddressRead = dReadEnable ? dAddress : //for cached loads
+                              orlOutput; //for loads that go to memory
+
+    wire [3:0]dIndex = dAddressRead[5:2]; 
+    wire [15:0]dTag = dAddressRead[15:6];
+    wire [1:0]dBlockIndex = dAddressRead[1:0];
 
     //first way
     wire [79:0]dvalue1 = dCache[dIndex];
@@ -206,7 +209,18 @@ module cache(input clk,
                         dcachev2Hit ? dvalue2 :
                         16'hxxxx;
 
-    //store  dAddress
+    //Writing cache values
+    //Indexing
+    wire [15:0]dAddressWrite = orlOutput; //for loads that go to meme
+
+    wire [3:0]dIndexW = dAddressWrite[5:2]; 
+
+    //setting cache values
+    wire [79:0]dCacheAssign;
+    assign dCacheAssign[79:64] = dTag; //tag
+    assign dCacheAssign[63:0] = dData; //data to store  
+
+    //store  dAddress for loads
     reg [15:0]daddr;
     always @(posedge clk) begin
         if(dReadEnable) begin
@@ -219,34 +233,55 @@ module cache(input clk,
             //store instruction value in cache
             if(!dvalue1V) begin
                 //nothing in 1st way -> store there
-                dCache[dIndex] <= dCacheAssign;
-                dCacheV[dIndex] <= 1;
-                dLRU[dIndex] <= 0;
-                dLRU[dIndex+16] <= 1;
+                dCache[dIndexW] <= dCacheAssign;
+                dCacheV[dIndexW] <= 1;
+                dLRU[dIndexW] <= 0;
+                dLRU[dIndexW+16] <= 1;
             end
             else if(!dvalue2V) begin
                 //nothing in 2nd way -> store there
-                dCache[dIndex+16] <= dCacheAssign;
-                dCacheV[dIndex+16] <= 1;
-                dLRU[dIndex] <= 1;
-                dLRU[dIndex+16] <= 0;
+                dCache[dIndexW+16] <= dCacheAssign;
+                dCacheV[dIndexW+16] <= 1;
+                dLRU[dIndexW] <= 1;
+                dLRU[dIndexW+16] <= 0;
             end
-            else if(dLRU[dIndex]) begin
+            else if(dLRU[dIndexW]) begin
                 //both occupied, and first way is LRU
-                dCache[dIndex] <= dCacheAssign;
-                dCacheV[dIndex] <= 1;
-                dLRU[dIndex] <= 0;
-                dLRU[dIndex+16] <= 1;              
+                dCache[dIndexW] <= dCacheAssign;
+                dCacheV[dIndexW] <= 1;
+                dLRU[dIndexW] <= 0;
+                dLRU[dIndexW+16] <= 1;              
             end
             else begin
                 //both occupied, second way is LRU
-                dCache[dIndex+16] <= dCacheAssign;
-                dCacheV[dIndex+16] <= 1;
-                dLRU[dIndex] <= 1;
-                dLRU[dIndex+16] <= 0;              
-            end   
-        end      
+                dCache[dIndexW+16] <= dCacheAssign;
+                dCacheV[dIndexW+16] <= 1;
+                dLRU[dIndexW] <= 1; 
+                dLRU[dIndexW+16] <= 0;              
+            end 
+        end   
+        //reset daddr   
+        if(dMemReady) begin
+            daddr <= 16'hFFFF;
+        end
     end
+
+    //data prefetcher
+    wire memRequest;
+    wire [15:0]requestAddress;
+
+    //the address memory is currently returning the value for   
+    wire [15:0]orlOutput;
+
+    prefetcher pre(clk,
+        pc,
+        dReadEnable, 
+        dAddress,
+
+        memRequest,
+        requestAddress,
+
+        orlOutput);
 
 
 endmodule

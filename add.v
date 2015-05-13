@@ -50,7 +50,7 @@ module adder(input clk,
 
     wire floatOutReady = float0Ready || float1Ready;
     wire isJeq = (float0Ready && (rs0Opcode == 6)) || (float1Ready && (rs1Opcode == 6));
-    wire jeqTaken = isJeq ? (float0Ready ? rs0Jeq : rs1Jeq) : 0;
+    wire jeqTaken = isJeq && ((float0Ready && rs0Jeq) || (float1Ready && rs1Jeq));
 
     //inputs to module
     wire float0Ready = rs0[46:46] && rs0[25:25] && rs0[4:4]; //ready to handle rs0 (priority)
@@ -60,18 +60,18 @@ module adder(input clk,
     wire [3:0]rs0Reg = rs0[50:47];
     wire [15:0]rs0v0 = rs0[41:26];
     wire [15:0]rs0v1 = rs0[20:5];
-    wire [15:0]rs0Add = rs0[41:26] + rs0[20:5];
-    wire [15:0]rs0Jeq = (rs0[41:26] == rs0[20:5]);
+    wire [15:0]rs0Add = rs0v0 + rs0v1;
+    wire [15:0]rs0Jeq = (rs0v0 == rs0v1);
     
     wire float1Ready = !float0Ready && rs1[46:46] && rs1[25:25] && rs1[4:4]; //ready to do rs1
     wire [3:0]rs1Opcode = rs1[45:42];
     wire [3:0]rs1src0 = rs1[24:21];
     wire [3:0]rs1src1 = rs1[3:0];
     wire [3:0]rs1Reg = rs1[50:47];
-    wire rs0r0 = rs0[25:25];
-    wire rs0r1 = rs0[4:4];
-    wire [15:0]rs1Add = rs1[41:26] + rs1[20:5];
-    wire [15:0]rs1Jeq = (rs1[41:26] == rs1[20:5]);
+    wire [15:0]rs1v0 = rs1[41:26];
+    wire [15:0]rs1v1 = rs1[20:5];
+    wire [15:0]rs1Add = rs1v0 + rs1v1;
+    wire [15:0]rs1Jeq = (rs1v0 == rs1v1);
 
     wire rs1src1change = ((rs1src1 == floatOutSrc) && float0Ready);
     always @(posedge clk) begin
