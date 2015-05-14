@@ -193,7 +193,6 @@ module main();
                          ((needsFloat && (floatFilled == 2)) || //all float stations used
                          (needsLoad && (loadFilled == 2)) || //all load stations used
                          ((opcode == 3) && (floatFilled > 0 || loadFilled > 0))); //waiting to end program 
-                         //jeq???
 
         //set register sources before sending to module
         if(stallDispatch) begin

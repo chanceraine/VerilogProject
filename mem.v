@@ -31,8 +31,6 @@ module mem(input clk,
     /* Simulation -- read initial content from file */
     initial begin
         $readmemh("mem.hex",data);
-        $dumpfile("cpu.vcd");
-        $dumpvars(1,mem);
     end
 
     reg [15:0]fetchPtr = 16'hxxxx;

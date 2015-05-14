@@ -32,6 +32,13 @@ module cache(input clk,
         end
     end
 
+    initial begin
+        $dumpfile("cpu.vcd");
+        $dumpvars(1,pre);
+        $dumpvars(1,i0);
+        $dumpvars(1,bp);
+    end
+
     //Memory
     wire [63:0]iData;
     wire iReady;
@@ -268,12 +275,33 @@ module cache(input clk,
         end   
     end
 
+
+    wire branch = jmp;
+    wire [15:0]branchPC = pc;
+    wire [15:0]branchAddr = jmpAddr;
+    wire [15:0]bpAddress;
+    wire firstHit;
+
+    bPredictor bp(clk,
+        laPC,
+        bpAddress,
+
+        branch,
+        branchPC,
+        branchAddr,
+        firstHit);
+
     //data prefetcher
     wire memRequest;
     wire [15:0]requestAddress;
 
     //the address memory is currently returning the value for   
     wire [15:0]orlOutput;
+
+    wire [15:0]laPC;
+    wire [15:0]branchAddress;
+
+    wire resetPC = firstHit;
 
     prefetcher pre(clk,
         pc,
@@ -284,9 +312,12 @@ module cache(input clk,
         requestAddress,
 
         orlOutput,
-
-        jmp,
-        jmpAddr);
+        
+        laPC,
+        bpAddress,
+        resetPC,
+        branchAddr
+        );
 
 
 endmodule

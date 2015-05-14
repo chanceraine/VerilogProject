@@ -8,14 +8,11 @@ module prefetcher(input clk,
 
 	output [15:0]orlOutput,
 
-	input jmp,
-	input [11:0]jmpAddr
+	output [15:0]laPC,
+	input [15:0]bpAddress,
+	input firstHit,
+	input [15:0]branchAddr
 	);
-
-	initial begin
-		$dumpfile("cpu.vcd");
-        $dumpvars(1,prefetcher);
-	end
 
 	//32 entry reference predictor table
 	//[1:0] = state
@@ -23,7 +20,8 @@ module prefetcher(input clk,
 	//[31:16] = prev address accessed
 	//[43:32] = tag (lower bits of pc)
 	//[43:43] = valid
-	reg [43:0]rpt[31:0];
+	//[44:48] = times (laPC can be 32 loops ahead)
+	reg [48:0]rpt[31:0];
 
 	//initialize all entries
 	initial begin
@@ -44,60 +42,75 @@ module prefetcher(input clk,
 
 	wire pcEntryHit = memAccess && pcEntryV && pcTag == pcEntryTag;
 
-	wire [43:0]pcEntry = rpt[pc];
+	wire [48:0]pcEntry = rpt[pc];
 	wire pcEntryV = pcEntry[43:43];
 	wire [10:0]pcEntryTag = pcEntry[42:32];
 	wire [15:0]pcEntryAddr = pcEntry[31:16];
 	wire [13:0]pcEntryStride = pcEntry[15:2];
 	wire [1:0]pcEntryState = pcEntry[1:0];
+	wire [4:0]pcEntryTimes = pcEntry[48:44];
 
 	//STATE TRANSITIONS
-	wire [43:0]init;
+	wire [48:0]init;
+	assign init[48:44] = 0;
 	assign init[43:43] = 1;
 	assign init[42:32] = pcEntryTag;
 	assign init[31:16] = memAddress;
 	assign init[15:2] = 0;
 	assign init[1:0] = 0;
 
-	wire [43:0]transient;
+	wire [48:0]transient;
+	assign transient[48:44] = (pcEntryTimes != 0) ? (pcEntryTimes - 1) : 0;
 	assign transient[43:43] = 1;
 	assign transient[42:32] = pcEntryTag;
 	assign transient[31:16] = memAddress;
 	assign transient[15:2] = memAddress - pcEntryAddr;
 	assign transient[1:0] = 1;
 
-	wire [43:0]stable;
+	wire [48:0]stable;
+	assign stable[48:44] = (pcEntryTimes != 0) ? (pcEntryTimes - 1) : 0;
 	assign stable[43:43] = 1;
 	assign stable[42:32] = pcEntryTag;
 	assign stable[31:16] = memAddress;
 	assign stable[15:2] = memAddress - pcEntryAddr;
 	assign stable[1:0] = 2;
 	
-	wire [43:0]none;
+	wire [48:0]none;
+	assign none[48:44] = (pcEntryTimes != 0) ? (pcEntryTimes - 1) : 0;
 	assign none[43:43] = 1;
 	assign none[42:32] = pcEntryTag;
 	assign none[31:16] = memAddress;
 	assign none[15:2] = memAddress - pcEntryAddr;
 	assign none[1:0] = 3;
 
+	wire [48:0]laPCRPT;
+	assign laPCRPT[48:44] = laPCEntryTimes + 1;
+	assign laPCRPT[43:0] = laPCEntry[43:0];
+
 	//Lookahead PC
 	reg [15:0]laPC = 0;
 
-	wire [15:0]laPCNextAddress = memAddress + (memAddress - laPCEntryAddr);
+	wire [48:0]entry4 = rpt[4];
+
+	wire [15:0]laPCNextAddress = laPCEntryAddr + (laPCEntryStride)*(laPCEntryTimes+1);
 
 	wire [10:0]laPCTag = laPC[15:5];
 	wire [4:0]laPCIndex = laPC[4:0];
 
-	wire [43:0]laPCEntry = rpt[laPC];
+	wire [48:0]laPCEntry = rpt[laPC];
 	wire laPCEntryV = laPCEntry[43:43];
 	wire [15:0]laPCEntryAddr = laPCEntry[31:16];
 	wire [13:0]laPCEntryStride = laPCEntry[15:2];
 	wire [1:0]laPCEntryState = laPCEntry[1:0];
+	wire [4:0]laPCEntryTimes = laPCEntry[48:44];
 
 	//control Lookahead PC
 	always @(posedge clk) begin
-		if(jmp) begin
-			laPC <= jmpAddr;
+		if(firstHit) begin
+			laPC <= branchAddr;
+		end
+		else if(bpAddress != 16'hFFFF) begin
+			laPC <= bpAddress;
 		end
 		else begin
 			laPC <= laPC + 1;
@@ -155,7 +168,9 @@ module prefetcher(input clk,
     	else if(laPCEntryV) begin
     		//if no other memory prefetch is needed, we will initiate another fetch if we can
 			memRequest <= 1;
-			requestAddress <= laPCNextAddress;    		
+			requestAddress <= laPCNextAddress;   
+			//update rpt
+			rpt[laPCIndex] <= laPCRPT;
     	end
     	else begin
 			memRequest <= 0;
@@ -201,7 +216,7 @@ module prefetcher(input clk,
             orl[0] <= requestAddress;
         end
         else if(0) begin
-        	orl[0] <= 1; //LAPC request
+        	orl[0] <= 1; //laPC request
         end
         else begin
            orl[0] <= 16'hFFFF;

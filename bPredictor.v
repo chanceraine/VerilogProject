@@ -1,22 +1,25 @@
 module bPredictor(input clk,
-	input request,
-	input [15:0]pc,
+	input [15:0]laPC,
 	output [15:0]address,
 
 	input branch,
-	input [15:0]brachPC,
-	input [15:0]branchAddr
+	input [15:0]branchPC,
+	input [15:0]branchAddr,
+	output firstHit
 	);
 
 	//reading
-	wire [4:0]index = address[4:0];
-	wire [10:0]tag = address[15:5];
+	wire [4:0]index = laPC[4:0];
+	wire [10:0]tag = laPC[15:5];
+	wire [1:0]state = pTable[index][1:0];
 
-	wire [1:0]state = wIndex[index][1:0];
-	wire [15:0]address = (state > 0)  ? wIndex[index][17:2] : 16'hFFFF;
+	wire [15:0]address = (state > 0) ? pTable[index][17:2] : 16'hFFFF;
 
 	//writing
-	wire [4:0]wIndex = address[4:0];
+	wire [4:0]wIndex = branchPC[4:0];
+
+	wire [15:0]ptable6 = pTable[6];
+	wire firstHit = (pTable[wIndex] == 0) && branch;
 
 	wire [28:0]writeValue;
 	assign writeValue[28:18] = brachPC[15:5];
@@ -32,7 +35,7 @@ module bPredictor(input clk,
 	integer i;
 	initial begin
 		for(i = 0; i < 32; i = i+1) begin
-			pTable[i] = 0;
+			pTable[i] <= 0;
 		end
 	end
 
