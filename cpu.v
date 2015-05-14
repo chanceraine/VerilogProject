@@ -141,8 +141,6 @@ module main();
     wire overwriteLoad = (floatWE && loadOutReady && loadOutReg == addRS[50:47] && addRS[45:42] == 1) || //load done, overwrite with add
                          (loadWE && loadOutReady && loadOutReg == loadRS[50:47]); //load done, overwrite with load
 
-    wire [3:0]source2 = regsSource[2];
-
     always @(posedge clk) begin
         if(floatOutReady && !isJeq) begin
             if((regsSource[floatOutReg] == floatOutSrc) && (regsValid[floatOutReg] == 0) && !overwriteAdd) begin
@@ -295,9 +293,6 @@ module main();
     //[20:5] = value1
     //[4:4] = ready1
     //[3:0] = src1
-
-    wire [15:0]reg0Src = regsSource[0];
-    wire [15:0]reg0V = regsValid[0];
 
     wire [15:0]addRSv0 = addRS[41:26];
     wire [15:0]addRSv1 = addRS[20:5];    

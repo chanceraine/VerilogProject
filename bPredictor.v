@@ -21,7 +21,6 @@ module bPredictor(input clk,
 	//writing
 	wire [4:0]wIndex = branchPC[4:0];
 
-	wire [15:0]ptable6 = pTable[6];
 	wire firstHit = (pTable[wIndex] == 0) && branch;
 
 	wire [28:0]writeValue;

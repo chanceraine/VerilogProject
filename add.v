@@ -59,9 +59,7 @@ module adder(input clk,
     wire [3:0]rs0src1 = rs0[3:0];
     wire [3:0]rs0Reg = rs0[50:47];
     wire [15:0]rs0v0 = rs0[41:26];
-    wire [15:0]rs0v1 = rs0[20:5];
-    wire rs0v0v = rs0[25:25];
-    wire rs0v1v = rs0[4:4];    
+    wire [15:0]rs0v1 = rs0[20:5];   
     wire [15:0]rs0Add = rs0v0 + rs0v1;
     wire [15:0]rs0Jeq = (rs0v0 == rs0v1);
     

@@ -1,4 +1,4 @@
-Memory change from Tomosulo (p9) base:
+Memory change from Tomasulo (p9) base:
 -Memory now returns 64 bit chunks
 -Data memory still takes 100 cycles, but it is pipelined (could have 100 memory requests in pipeline)
 -Fetching still works the same (gets one instruction, even if it got a 4 instr. chunk back)
@@ -6,19 +6,68 @@ Memory change from Tomosulo (p9) base:
 Prefetcher:
 -Based on the reference prediction table design with lookahead by Chen and Baer
 -http://www.cs.utah.edu/~rajeev/cs7810/papers/chen95.pdf for reference
--Whenever a memory access occurs, it notifies the prefetcher of what the pc was that 
--See the rules for state transitions in the comments in prefetcher.v
-
+-Whenever a memory access occurs, it notifies the prefetcher of what the pc was that the access came from.
+ The prefetcher checks to see if this pc has been seen before, and if it has, then it compares the difference in access addresses
+ If the difference is the same as before, it initiates a prefetch request. The next time that pc shows up and does its request, it will 
+ already have fetched the address, or will have to wait less time. The ORL checks to make sure that the address is not already being fetched, so no excessive prefetches are made
+-The lookahead pc works by following an expected route the program will take. The branch predictor is simple and just recognizes jumps.
+-By recording the number of times the lookahead pc has overlapped the current pc, it can fetch multiple loops ahead of time
+-The exact rules for state transitions are in the comments in prefetcher.v
 
 What worked?
+Performance increased a lot - in my test case memz.hex, my p9 base tomasulo took 1705 cycles to complete, whereas my new processor only took 299. A small amount of this performance increase is from changing the memory to returning 64 bit chunks, so there were a lot more instruction cache hits. However, the main increases came from the prefetcher, and it was rewarding to see it work as one would expect it to work. The lookahead pc also helped increase performance quite a bit, since it would allow memory requests to go out every few cycles. I'm somewhat proud about the fact that many of my assumptions are fairly reasonable. Other than having quick instruction access, my assumption about memory taking 100 cycles isn't unreasonable, nor is allowing pipelined memory fetching. I think my design serves as a pretty good model for how prefetching can improve a system, which is satisfying. 
 
 What didn't work?
 -Turns out my Tomasulo (p9) project had a massive number of bugs I just hadn't found yet (somehow it passed all the tests though...)
 -This took a lot of my working time to fix. I made the base prefetcher, and then spent 10-15 hrs finding bugs that I then discovered
-
-Things I would've liked to do:
--multiple dispatch
--store instruction
--better branch predictor
+-I also was not able to get things working as deeply as I hoped. I had planned on adding back in the store instruction, and doing a multi level branch predictor that would actually take jeq's into consideration, and not just detect jmps. It turned out to be much more tricky to integrate the basic prefetching capabilities into my base project, so the project felt somewhat incomplete at the end.
 
 What did you learn?
+I learned quite a bit about prefetching, and how the different components all communicated with each other. It seems as though most of the components rarely can stand alone - most of my components ended up needing wires from all the rest of the components, which made it hard to section off modules within other modules. As for prefetching, I now see how devising a good prefetcher can be a massive timesaver. In the real world, memory takes much longer than 100 cycles, so if you can find a way to request memory early, it can be greatly beneficial. I also relearned the difficulties of having multiple accesses occuring at the same time. Many of the bugs that reemerged from p9 had to do with handling cases where two modules both wanted access to the same component. For instance, I had forgotten to deal with the case where a load was finishing, but an add was about to overwrite the register the load was loading to. It's simple to deal with - I just had to make sure the valid bit for the register stayed off, but it was insidious to find in the first place. I guess that's why it's important to plan out all the possible cases in the first place instead of spending hours debugging later.  
+
+Stats comparison (ignore instrs/cpi, they aren't caltulated correctly)
+p9:					final: 
+test1 ... 
+pass @  517 cycles	387 cycles	
+test2 ... 
+pass @  750 cycles	241 cycles
+test3 ... 
+pass @   66 cycles	42 cycles
+test4 ... 
+pass @   46 cycles	31 cycles
+test5 ... 
+pass @  143 cycles	139 cycles
+test6 ... 
+pass @  442 cycles	332 cycles
+test7 ... 
+pass @ 1059 cycles	354 cycles
+test8 ... 
+pass @  214 cycles	112 cycles	
+test9 ... 
+pass @  679 cycles	355 cycles
+testa ... 
+pass @   87 cycles	65 cycles
+testb ... 
+pass @   78 cycles  52 cycles	
+testc ... 
+pass @  105 cycles	81 cycles
+testd ... 
+pass @   34 cycles	22 cycles
+teste ... 
+pass @   36 cycles	25 cycles
+testf ... 
+pass @ 1621 cycles	425 cycles
+testg ... 
+pass @  312 cycles	211 cycles
+testh ... 
+pass @  117 cycles	112 cycles
+testi ... 
+pass @  151 cycles	140 cycles
+testj ... 
+failed apparently?	349 cycles
+testk ... 
+pass @  210 cycles	139 cycles	
+testw ... 
+pass @  248 cycles	157 cycles
+testz ... 
+pass @ 1705 cycles	299 cycles
