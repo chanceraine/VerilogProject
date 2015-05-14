@@ -83,36 +83,18 @@ module prefetcher(input clk,
 	assign none[15:2] = memAddress - pcEntryAddr;
 	assign none[1:0] = 3;
 
-	wire [48:0]laPCRPT;
-	assign laPCRPT[48:44] = laPCEntryTimes + 1;
-	assign laPCRPT[43:0] = laPCEntry[43:0];
-
-	//Lookahead PC
-	reg [15:0]laPC = 0;
-
-	wire [48:0]entry4 = rpt[4];
-
-	wire [15:0]laPCNextAddress = laPCEntryAddr + (laPCEntryStride)*(laPCEntryTimes+1);
-
-	wire [10:0]laPCTag = laPC[15:5];
-	wire [4:0]laPCIndex = laPC[4:0];
-
-	wire [48:0]laPCEntry = rpt[laPC];
-	wire laPCEntryV = laPCEntry[43:43];
-	wire [15:0]laPCEntryAddr = laPCEntry[31:16];
-	wire [13:0]laPCEntryStride = laPCEntry[15:2];
-	wire [1:0]laPCEntryState = laPCEntry[1:0];
-	wire [4:0]laPCEntryTimes = laPCEntry[48:44];
-
 	//control Lookahead PC
 	always @(posedge clk) begin
 		if(firstHit) begin
+			//reset lapc if we reach new branch (so it doesn't go too far ahead)
 			laPC <= branchAddr;
 		end
 		else if(bpAddress != 16'hFFFF) begin
-			laPC <= bpAddress;
+			//if we have a prediction, go there
+			laPC <= bpAddress; 
 		end
 		else begin
+			//we assume that conditional jumps fail, so all other cases make us go to next addr
 			laPC <= laPC + 1;
 		end
 	end
@@ -178,8 +160,26 @@ module prefetcher(input clk,
     	end
     end
 
-    //Manage currently in progress requests
+    //Lookahead PC
+	reg [15:0]laPC = 0;
 
+	wire [15:0]laPCNextAddress = laPCEntryAddr + (laPCEntryStride)*(laPCEntryTimes+1);
+
+	wire [10:0]laPCTag = laPC[15:5];
+	wire [4:0]laPCIndex = laPC[4:0];
+
+	wire [48:0]laPCEntry = rpt[laPC];
+	wire laPCEntryV = laPCEntry[43:43];
+	wire [15:0]laPCEntryAddr = laPCEntry[31:16];
+	wire [13:0]laPCEntryStride = laPCEntry[15:2];
+	wire [1:0]laPCEntryState = laPCEntry[1:0];
+	wire [4:0]laPCEntryTimes = laPCEntry[48:44];
+
+	wire [48:0]laPCRPT;
+	assign laPCRPT[48:44] = laPCEntryTimes + 1;
+	assign laPCRPT[43:0] = laPCEntry[43:0];
+
+    //Manage currently in progress requests
 	reg[15:0]orl[99:0];
 
 	wire [15:0]orlOutput = orl[99];
@@ -195,6 +195,7 @@ module prefetcher(input clk,
             if(memAccess) begin
 	            //weird way to check if address already in orl
 	            //gets set to 1 if address is there, 0 otherwise
+	            //this way we don't do a request if one already sent
 	            if(orl[i] == pcNextAddress) begin
 	            	orlCheck <= 1;
 	            end

@@ -1,3 +1,6 @@
+//Super simple branch predictor
+//Only works for jmps, not conditional jumps
+//Didn't have time to implement that feature :(
 module bPredictor(input clk,
 	input [15:0]laPC,
 	output [15:0]address,

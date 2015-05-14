@@ -1,18 +1,24 @@
-Describe your implementation:
-
-Memory Changes:
+Memory change from Tomosulo (p9) base:
 -Memory now returns 64 bit chunks
 -Data memory still takes 100 cycles, but it is pipelined (could have 100 memory requests in pipeline)
+-Fetching still works the same (gets one instruction, even if it got a 4 instr. chunk back)
+
 Prefetcher:
+-Based on the reference prediction table design with lookahead by Chen and Baer
+-http://www.cs.utah.edu/~rajeev/cs7810/papers/chen95.pdf for reference
+-Whenever a memory access occurs, it notifies the prefetcher of what the pc was that 
+-See the rules for state transitions in the comments in prefetcher.v
 
 
 What worked?
 
 What didn't work?
 -Turns out my Tomasulo (p9) project had a massive number of bugs I just hadn't found yet (somehow it passed all the tests though...)
--This took a lot of my working time to fix. I made the base prefetcher, and then spent 10-15 hrs finding bugs that it made me discover
+-This took a lot of my working time to fix. I made the base prefetcher, and then spent 10-15 hrs finding bugs that I then discovered
 
 Things I would've liked to do:
-
+-multiple dispatch
+-store instruction
+-better branch predictor
 
 What did you learn?
